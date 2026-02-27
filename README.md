@@ -1,21 +1,82 @@
-### Lab 2.1: Setting Up React in Electron
-**Duration:** 1.5 hours  
-**Objective:** Integrate React into your Electron application with proper development setup.
+# MyDesk App
 
-**Steps:**
-1. Set up Create React App in a subfolder or modify existing structure
-2. Configure concurrent running of React dev server and Electron
-3. Implement proper build scripts for development and production
-4. Test hot reloading functionality
+A desktop application built with Electron and React for managing notes and tasks.
 
-**Code Example (package.json scripts):**
-```json
-{
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "electron": "electron .",
-    "electron-dev": "concurrently \"npm start\" \"wait-on http://localhost:3000 && electron .\""
-  }
-}
+## Features
+
+### Notes
+- Create, delete, and manage notes
+- Import notes from JSON files
+- Export notes to JSON files
+- Confirmation dialog when closing with unsaved work
+
+### Tasks
+- Three task sections: To Do, In Progress, Done
+- Drag and drop tasks between sections
+- Search tasks by name
+- Reminder options:
+  - In 5 minutes
+  - In 30 minutes
+  - Tomorrow at 9.00 AM
+  - Custom date and time
+- Overdue task notifications (background)
+- Delete individual tasks or all tasks at once
+- Visual indicator for overdue tasks
+
+### System Integration
+- System tray support
+- Background notifications for overdue tasks
+- Minimize to tray on close
+
+## Tech Stack
+
+- **Frontend:** React 18, TypeScript, Vite
+- **Desktop:** Electron
+- **Background Jobs:** node-cron
+- **Build:** electron-builder
+
+## Getting Started
+
+### Prerequisites
+- Node.js (v18+)
+- npm
+
+### Installation
+
+```bash
+npm install
 ```
+
+### Development
+
+Run the app in development mode:
+
+```bash
+npm run electron-dev
+```
+
+This will:
+1. Start the Vite dev server
+2. Launch Electron with the app
+
+### Build
+
+Build the production app:
+
+```bash
+npm run electron-build
+```
+
+The built application will be in the `release` folder.
+
+### Run Built App
+
+```bash
+npm run electron-start
+```
+
+## Data Storage
+
+- Notes are stored in `notes.json`
+- Tasks are stored in `tasks.json`
+- Data is saved in the user's app data directory
