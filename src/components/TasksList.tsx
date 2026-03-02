@@ -28,10 +28,16 @@ const TasksList = () => {
     const handleClose = async () => {
       await window.electronAPI.requestCloseTasks(isModalOpen);
     };
+    const onTaskRefreshEvent = () => {
+      console.log('Refreshing tasks list')
+      loadTasks();
+    }
 
     const unsubscribeClose = window.electronAPI.onCloseRequest(handleClose);
+    const unsubscribeTasksLoadEvent = window.electronAPI.reloadTasksListener(onTaskRefreshEvent)
     return () => {
-      if(unsubscribeClose) unsubscribeClose();
+      if (unsubscribeClose) unsubscribeClose();
+      if (unsubscribeTasksLoadEvent) unsubscribeTasksLoadEvent();
     };
   }, []);
 
@@ -147,18 +153,18 @@ const TasksList = () => {
           </div>
           <div className="tasks-actions-btn-group">
             <button
-            onClick={() => setIsModalOpen(true)}
-            className="add-task-btn"
-          >
-            + Add New Task
-          </button>
-          <button
-            onClick={handleDeleteAllTasks}
-            className="delete-all-btn"
-            disabled={tasks.length === 0}
-          >
-            Delete All
-          </button>
+              onClick={() => setIsModalOpen(true)}
+              className="add-task-btn"
+            >
+              + Add New Task
+            </button>
+            <button
+              onClick={handleDeleteAllTasks}
+              className="delete-all-btn"
+              disabled={tasks.length === 0}
+            >
+              Delete All
+            </button>
           </div>
         </div>
         <h3 className="tasks-list-header">Your Tasks ({filteredTasks.length})</h3>

@@ -4,32 +4,55 @@ const fs = require('fs');
 const crypto = require('crypto');
 const cron = require('node-cron');
 
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    if (win) {
+      if (win.isMinimized()) {
+        win.restore();
+        win.show();
+      }
+      win.focus();
+    }
+  })
+}
+
 let notesFilePath;
 let tasksFilePath;
+let backupDir;
 let notes = [];
 let isReadyToClose = false;
 let tray = null;
 let win = null;
 
+
 const checkOverdueTasks = () => {
   console.log('in checkOverdueTasks')
+  if (!fs.existsSync(notesFilePath)) return;
   const now = new Date();
   const allTasks = fs.readFileSync(tasksFilePath, 'utf-8');
-  const overDueTasksIds = [];
+  const overDueTasks = [];
   const allTasksJson = JSON.parse(allTasks);
   console.log("allTasksJson", allTasksJson)
   allTasksJson.forEach((task) => {
-    console.log("task", task)
     if (task.remindAt && !task.isOverdue) {
       const remindTime = new Date(task.remindAt);
       if (remindTime <= now) {
         task.isOverdue = true;
-        overDueTasksIds.push(task);
+        overDueTasks.push(task);
       }
     }
   });
   fs.writeFileSync(tasksFilePath, JSON.stringify(allTasksJson, null, 2));
-  showOverdueTasks(overDueTasksIds);
+  showOverdueTasks(overDueTasks);
+  console.log(`Found ${overDueTasks.length} overdue task(s)`);
+  if (overDueTasks.length > 0) {
+    updateTrayTooltip(overDueTasks.length)
+    updateContextMenu({ overDueTaskCount: overDueTasks.length });
+    sendTasksRefreshEvent();
+  }
   tasks = allTasksJson;
 }
 
@@ -42,13 +65,71 @@ const showOverdueTasks = (overDueTask) => {
       win.show();
       win.webContents.send('open-app', {
         tab: 'tasks'
-      })
+      });
+      sendTasksRefreshEvent();
     })
     notification.show();
   })
 }
 
-cron.schedule('* * * * *', checkOverdueTasks)
+const updateTrayTooltip = (overdueCount) => {
+  if (!tray) return;
+  const tooltipText = overdueCount > 0
+    ? `MyDesk App - ${overdueCount} overdue task(s)`
+    : 'MyDesk App';
+  tray.setToolTip(tooltipText);
+}
+
+const updateContextMenu = (data = {}) => {
+  const { overDueTaskCount = 0 } = data;
+  const defaultFirstItems = [
+    {
+      label: 'Show App', click: () => {
+        win.show();
+        sendTasksRefreshEvent();
+      }
+    },
+    { label: 'Hide App', click: () => win.hide() },
+    { type: 'separator' },
+
+  ]
+
+  const optionalMenuItems = [
+    ...(overDueTaskCount > 0 ? [
+      {
+        label: 'View Overdue Tasks',
+        click: () => {
+          win.show();
+          win.webContents.send('open-app', {
+            tab: 'tasks'
+          })
+          sendTasksRefreshEvent();
+          updateContextMenu()
+        }
+      },
+      { type: 'separator' },
+    ] : [])
+  ]
+
+  const defaultLastItems = [
+    {
+      label: 'Quit', click: () => {
+        isReadyToClose = true;
+        app.quit();
+        tray.destroy();
+      }
+    }
+  ]
+  const finalContextMenu = Menu.buildFromTemplate([
+    ...defaultFirstItems,
+    ...optionalMenuItems,
+    ...defaultLastItems
+  ]);
+  tray.setContextMenu(finalContextMenu);
+}
+
+cron.schedule('* * * * *', checkOverdueTasks);
+cron.schedule('0 0 * * *', createBackup);
 
 ipcMain.handle('add-note', async (event, note) => {
   const newNote = {
@@ -58,6 +139,7 @@ ipcMain.handle('add-note', async (event, note) => {
   };
   notes.push(newNote);
   fs.writeFileSync(notesFilePath, JSON.stringify(notes, null, 2));
+  sendNotesRefreshEvent();
   return { success: true, data: notes };
 });
 
@@ -156,15 +238,15 @@ ipcMain.handle('request-close-notes', async (event, title, content) => {
     notes.push(newNote);
     fs.writeFileSync(notesFilePath, JSON.stringify(notes, null, 2));
   } else if ((hasOne && result.response === 1) || (hasBoth && result.response === 2)) {
-      win.show();
-      return;
+    win.show();
+    return;
   }
   isReadyToClose = true;
   win.hide();
 });
 
 ipcMain.handle('request-close-tasks', async (event, isModalOpen) => {
-  if(isModalOpen) {
+  if (isModalOpen) {
     win.show();
     return;
   };
@@ -189,6 +271,7 @@ ipcMain.handle('open-file-dialog', async () => {
     });
     console.log('notesFilePath', notesFilePath)
     fs.writeFileSync(notesFilePath, JSON.stringify(notes, null, 2));
+    sendNotesRefreshEvent();
     return { success: true, data: notes }
   }
   return { success: false, cancelled: true }
@@ -287,17 +370,30 @@ ipcMain.handle('filter-tasks', async (event, searchTerm) => {
 
 ipcMain.handle('update-task-status', async (event, taskId, newStatus) => {
   try {
-    const taskIndex = tasks.findIndex(t => t.id === taskId);
-    if (taskIndex === -1) {
-      return { success: false, error: 'Task not found' };
-    }
-    tasks[taskIndex].status = newStatus;
-    fs.writeFileSync(tasksFilePath, JSON.stringify(tasks, null, 2));
+    updateTaskStatus(taskId, newStatus);
     return { success: true, data: tasks };
   } catch (e) {
     return { success: false, error: e.message };
   }
 });
+
+ipcMain.handle('show-task-context-menu', async (event, task) => {
+  console.log(task)
+  const taskId = task.id;
+  const currentStatus = task.status;
+  const validStatusesTemplates = [];
+  taskStatesAndContextHandlers.forEach((status) => {
+    if (status.key === currentStatus) return;
+    const clickHandler = status.getClickHandler(taskId);
+    validStatusesTemplates.push({
+      label: status.label,
+      click: clickHandler
+    });
+  });
+  const menu = Menu.buildFromTemplate(validStatusesTemplates);
+  menu.popup({ window: win })
+
+})
 function createTray() {
   let iconPath;
   if (app.isPackaged) {
@@ -333,37 +429,83 @@ function createTray() {
   try {
     console.log("Creating tray...");
     tray = new Tray(icon);
-    console.log("Tray created, setting tooltip...");
-    tray.setToolTip('MyDesk App');
+    console.log("Tray created, cheking for overdue tasks to set the tooltip...");
+    checkOverdueTasks()
     console.log("Tooltip set, building menu...");
+
   } catch (error) {
     console.error("Error creating tray:", error);
     return;
   }
+  updateContextMenu();
 
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: 'Show App', click: () => {
-        console.log('show app');
-        win.show()
-      }
-    },
-    { label: 'Hide App', click: () => win.hide() },
-    { type: 'separator' },
-    { label: 'Quit', click: () => { isReadyToClose = true; win.hide(); } }
-  ]);
 
-  tray.setContextMenu(contextMenu);
-
-  tray.on('click', () => win.show());
+  tray.on('click', () => { win.show(); sendTasksRefreshEvent() });
 
   console.log("Tray setup complete. Tray object:", tray ? "exists" : "null");
 }
 
+const sendTasksRefreshEvent = () => {
+  win.webContents.send('refresh-tasks');
+}
+
+const sendNotesRefreshEvent = () => {
+  win.webContents.send('refresh-notes');
+}
+
+const updateTaskStatus = (taskId, newStatus) => {
+  const taskIndex = tasks.findIndex(t => t.id === taskId);
+  console.log('taskId', taskId)
+  if (taskIndex === -1) {
+    return { success: false, error: 'Task not found' };
+  }
+  tasks[taskIndex].status = newStatus;
+  fs.writeFileSync(tasksFilePath, JSON.stringify(tasks, null, 2));
+}
+
+const createApplicationMenu = () => {
+  const template = [
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Import Notes',
+          accelerator: 'CmdOrCtrl+Shift+I',
+          click: async () => { await win.webContents.send('import-notes'); }
+        },
+        {
+          label: 'Export Notes',
+          accelerator: 'CmdOrCtrl+Shift+E',
+          click: () => win.webContents.send('export-notes')
+        },
+        { type: 'separator' },
+        {
+          label: 'Quit',
+          accelerator: 'CmdOrCtrl+Q',
+          click: () => {
+            isReadyToClose = true;
+            tray.destroy();
+            app.quit();
+          }
+        }
+      ]
+    }
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
+
 function createWindow() {
   const userDataPath = app.getPath('userData');
+  // can be stored in database instead of json files
+  // it will help in tasks like filterig, searching and pagination
   notesFilePath = path.join(userDataPath, 'notes.json');
   tasksFilePath = path.join(userDataPath, 'tasks.json');
+  backupDir = path.join(userDataPath, 'backups');
+
+  if (!fs.existsSync(backupDir)) {
+    fs.mkdirSync(backupDir, { recursive: true });
+  }
 
   win = new BrowserWindow({
     width: 900,
@@ -380,6 +522,7 @@ function createWindow() {
   });
 
   createTray();
+  createApplicationMenu();
 
   win.webContents.on('did-finish-load', () => {
     setTimeout(() => {
@@ -418,11 +561,68 @@ function createWindow() {
   console.log('Notifications.isSupported', Notification.isSupported())
 }
 
+function createBackup() {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+  if (fs.existsSync(notesFilePath)) {
+    const backupPath = path.join(backupDir, `notes.${timestamp}.json`);
+    fs.copyFileSync(notesFilePath, backupPath);
+  }
+
+  if (fs.existsSync(tasksFilePath)) {
+    const backupPath = path.join(backupDir, `tasks.${timestamp}.json`);
+    fs.copyFileSync(tasksFilePath, backupPath);
+  }
+
+  cleanupOldBackups();
+
+  console.log('Backup created:', timestamp);
+}
+
+function cleanupOldBackups() {
+  const files = fs.readdirSync(backupDir);
+  const notesBackups = files.filter(f => f.startsWith('notes.')).sort().reverse();
+  const tasksBackups = files.filter(f => f.startsWith('tasks.')).sort().reverse();
+
+  notesBackups.slice(5).forEach(f => fs.unlinkSync(path.join(backupDir, f)));
+  tasksBackups.slice(5).forEach(f => fs.unlinkSync(path.join(backupDir, f)));
+}
+
+const taskStatesAndContextHandlers = [
+  {
+    key: 'todo',
+    label: 'Move to To Do',
+    getClickHandler: (taskId) => {
+      return () => {
+        updateTaskStatus(taskId, 'todo');
+        sendTasksRefreshEvent();
+      }
+    }
+  },
+  {
+    key: 'inprogress',
+    label: 'Move to In Progress',
+    getClickHandler: (taskId) => {
+      return () => {
+        console.log('updating to inprogress')
+        updateTaskStatus(taskId, 'inprogress');
+        sendTasksRefreshEvent();
+      }
+    }
+  },
+  {
+    key: 'done',
+    label: 'Move to Done',
+    getClickHandler: (taskId) => {
+      return () => {
+        updateTaskStatus(taskId, 'done');
+        sendTasksRefreshEvent();
+      }
+    }
+  }
+];
+
 app.whenReady().then(createWindow);
-
-app.on('window-all-closed', () => {
-
-});
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {

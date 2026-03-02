@@ -2,6 +2,10 @@
   "name": "mydesk-app",
   "version": "1.0.0",
   "main": "main.js",
+  "author": {
+    "email": "gayatri@infocusp.com",
+    "name": "Gayatri Shinde"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -44,7 +48,10 @@
       }
     ],
     "linux": {
-      "target": "AppImage",
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Utility",
       "icon": "icon"
     },

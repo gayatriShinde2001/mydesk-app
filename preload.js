@@ -15,10 +15,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   removeAllCloseListeners: () => ipcRenderer.removeAllListeners('app-close-request'),
   onStatusUpdate: (callback => {
-    const listener = (event,data) => callback(data);
-    ipcRenderer.on('status-update',listener);
-    return ()=>{
-      ipcRenderer.removeListener('status-update',listener);
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('status-update', listener);
+    return () => {
+      ipcRenderer.removeListener('status-update', listener);
     }
   }),
   openFile: () => ipcRenderer.invoke('open-file-dialog'),
@@ -29,11 +29,36 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteAllTasks: () => ipcRenderer.invoke('delete-all-tasks'),
   updateTaskStatus: (taskId, status) => ipcRenderer.invoke('update-task-status', taskId, status),
   filterTasks: (searchTerm) => ipcRenderer.invoke('filter-tasks', searchTerm),
-  openAppListener : (callback) => {
-    const listener = (event,data) => callback(data);
-    ipcRenderer.on('open-app',listener);
-    return ()=>{
-      ipcRenderer.removeListener('open-app',listener);
+  openAppListener: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('open-app', listener);
+    return () => {
+      ipcRenderer.removeListener('open-app', listener);
+    }
+  },
+  reloadTasksListener: (callback) => {
+    ipcRenderer.on('refresh-tasks', callback);
+    return () => {
+      ipcRenderer.removeListener('refresh-tasks', callback);
+    }
+  },
+  reloadNotesListener: (callback) => {
+    ipcRenderer.on('refresh-notes', callback);
+    return () => {
+      ipcRenderer.removeListener('refresh-notes', callback);
+    }
+  },
+  showTaskContextMenu: (task) => ipcRenderer.invoke('show-task-context-menu', task),
+  onImportNotes: (callback) => {
+    ipcRenderer.on('import-notes', callback);
+    return () => {
+      ipcRenderer.removeListener('import-notes', callback);
+    }
+  },
+  onExportNotes: (callback) => {
+    ipcRenderer.on('export-notes', callback);
+    return () => {
+      ipcRenderer.removeListener('export-notes', callback);
     }
   }
 });

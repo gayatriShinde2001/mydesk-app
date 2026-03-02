@@ -5,7 +5,7 @@ interface Note {
   title: string;
   content: string;
 }
-interface NewNote extends Omit<Note,'id'>{}
+interface NewNote extends Omit<Note, 'id'> { }
 
 interface Task {
   id: string;
@@ -22,11 +22,16 @@ interface NewTask {
 }
 
 interface Window {
-  electronAPI:{
-    onCloseRequest(handleClose: () => Promise<void>): ()=>{};
+  electronAPI: {
+    onExportNotes(arg0: () => Promise<void>): () => {};
+    onImportNotes(arg0: () => Promise<void>): () => {};
+    showTaskContextMenu(task: Task): unknown;
+    reloadTasksListener(onTaskRefreshEvent: () => void): () => {};
+    reloadNotesListener(onNotesRefreshEvent: () => void): () => {};
+    onCloseRequest(handleClose: () => Promise<void>): () => {};
     showCustomDialog(arg0: { message: string; buttons: string[]; }): unknown;
     onAppClosing(callback: () => Promise<void>): void;
-    onStatusUpdate(callback: (data: { isReady: boolean }) => void): ()=>{};
+    onStatusUpdate(callback: (data: { isReady: boolean }) => void): () => {};
     ping: () => Promise<string>;
     addNote: (note: NewNote) => Promise<{ success: boolean; data?: Note[]; error?: string }>;
     loadNotes: () => Promise<{ success: boolean; data?: Note[]; error?: string }>;

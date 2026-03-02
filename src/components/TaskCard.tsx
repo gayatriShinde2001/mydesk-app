@@ -29,17 +29,16 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onDelete, onDragStart }) => {
       onDelete(task.id);
     }
   };
-
-  const statusLabels: Record<string, string> = {
-    todo: 'To Do',
-    inprogress: 'In Progress',
-    done: 'Done'
-  };
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    window.electronAPI.showTaskContextMenu(task);
+  }
 
   return (
     <div
       draggable
       onDragStart={(e) => onDragStart(e, task.id)}
+      onContextMenu={handleContextMenu}
       className="task-card"
     >
       <div className="task-card-header">

@@ -24,9 +24,16 @@ const NotesList = () => {
       await window.electronAPI.requestCloseNotes(title, content);
     };
 
+    const onNotesRefreshEvent = () => {
+      console.log('Refreshing notes list');
+      loadNotes();
+    }
+
     const unsubscribeClose = window.electronAPI.onCloseRequest(handleClose);
+    const unsubscribeNotesLoadEvent = window.electronAPI.reloadNotesListener(onNotesRefreshEvent);
     return () => {
       if(unsubscribeClose) unsubscribeClose();
+      if(unsubscribeNotesLoadEvent) unsubscribeNotesLoadEvent();
     };
   }, []);
   
