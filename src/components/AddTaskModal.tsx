@@ -1,18 +1,20 @@
 import React, { useRef, useEffect, useState } from "react";
-import "./AddTaskModal.css";
+import { Task } from "../types";
 
 interface AddTaskModalProps {
   isOpen: boolean;
+  taskForEdit: Task;
+  isEdit?: boolean;
   onClose: () => void;
   onSubmit: (task: { name: string; description: string; remindAt: string }) => void;
 }
 
-const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit }) => {
-  const nameRef = useRef<HTMLInputElement>(null);
-  const descriptionRef = useRef<HTMLTextAreaElement>(null);
-  const customDateRef = useRef<HTMLInputElement>(null);
-  
-  const [remindOption, setRemindOption] = useState("");
+const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, isEdit = false, taskForEdit, onClose, onSubmit }) => {
+  const nameRef = useRef<HTMLInputElement>(taskForEdit ? taskForEdit.name : null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(taskForEdit ? taskForEdit.description : null);
+  const customDateRef = useRef<HTMLInputElement>(taskForEdit ? taskForEdit.remindAt : null);
+
+  const [remindOption, setRemindOption] = useState(taskForEdit ? taskForEdit.remindOption : "");
 
   useEffect(() => {
     if (isOpen && nameRef.current) {
@@ -22,6 +24,13 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit }
       setRemindOption("");
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (taskForEdit == null) return;
+    nameRef.current.value = taskForEdit.name;
+    descriptionRef.current.value = taskForEdit.description;
+    // customDateRef.current.value = new Date(taskForEdit.remindAt).getTime();
+  }, [taskForEdit])
 
   if (!isOpen) return null;
 
@@ -49,7 +58,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit }
     e.preventDefault();
     const name = nameRef.current?.value || "";
     const description = descriptionRef.current?.value || "";
-    
+
     let remindAt = "";
     if (remindOption === "custom" && customDateRef.current?.value) {
       remindAt = new Date(customDateRef.current.value).toISOString();
@@ -58,7 +67,10 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit }
     }
 
     if (!name.trim()) return;
-    onSubmit({ name, description, remindAt });
+    const submitObj = { name, description, remindAt }
+    submitObj.id = taskForEdit ? taskForEdit.id : undefined;
+    if (!remindAt) submitObj.remindAt = taskForEdit.remindAt;
+    onSubmit(submitObj);
     onClose();
   };
 
@@ -70,32 +82,37 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit }
 
   return (
     <div
-      className="modal-overlay"
+      className="fixed inset-0 bg-black/50 flex justify-center items-center z-[1000]"
       onClick={handleOverlayClick}
     >
-      <div className="modal-content">
-        <h2 className="modal-title">Add New Task</h2>
+      <div className="bg-white rounded-lg p-6 w-[90%] max-w-[500px] shadow-xl">
+
+        {isEdit ?
+          <h2 className="m-0 mb-5 text-xl text-gray-800">Edit Task</h2> :
+          <h2 className="m-0 mb-5 text-xl text-gray-800">Add New Task</h2>
+        }
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
+          <div className="mb-4">
             <label
               htmlFor="task-name"
-              className="form-label"
+              className="block mb-1.5 font-medium text-gray-600"
             >
               Task Name *
             </label>
             <input
+              disabled={isEdit}
               ref={nameRef}
               id="task-name"
               type="text"
               placeholder="Enter task name"
-              className="form-input"
+              className="w-full p-2.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
               required
             />
           </div>
-          <div className="form-group">
+          <div className="mb-4">
             <label
               htmlFor="task-description"
-              className="form-label"
+              className="block mb-1.5 font-medium text-gray-600"
             >
               Task Description
             </label>
@@ -104,13 +121,13 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit }
               id="task-description"
               placeholder="Enter task description"
               rows={4}
-              className="form-textarea"
+              className="w-full p-2.5 border border-gray-300 rounded text-sm resize-y focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
             />
           </div>
-          <div className="form-group">
+          <div className="mb-4">
             <label
               htmlFor="remind-option"
-              className="form-label"
+              className="block mb-1.5 font-medium text-gray-600"
             >
               Remind me
             </label>
@@ -118,7 +135,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit }
               id="remind-option"
               value={remindOption}
               onChange={(e) => setRemindOption(e.target.value)}
-              className="form-select"
+              className="w-full p-2.5 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:border-indigo-500"
             >
               <option value="none">Don't remind</option>
               <option value="1min">In 1 minutes</option>
@@ -129,10 +146,10 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit }
             </select>
           </div>
           {remindOption === "custom" && (
-            <div className="form-group">
+            <div className="mb-4">
               <label
                 htmlFor="custom-remind"
-                className="form-label"
+                className="block mb-1.5 font-medium text-gray-600"
               >
                 Custom Date & Time
               </label>
@@ -140,23 +157,23 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onSubmit }
                 ref={customDateRef}
                 id="custom-remind"
                 type="datetime-local"
-                className="form-input"
+                className="w-full p-2.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
               />
             </div>
           )}
-          <div className="form-actions">
+          <div className="flex gap-2.5 justify-end">
             <button
               type="button"
               onClick={onClose}
-              className="btn-cancel"
+              className="px-5 py-2.5 border border-gray-300 rounded bg-gray-100 cursor-pointer text-sm hover:bg-gray-200 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="btn-submit"
+              className="px-5 py-2.5 rounded bg-indigo-500 text-white text-sm border-none cursor-pointer hover:bg-indigo-600 transition-colors"
             >
-              Add Task
+              {isEdit ? "Edit task" : "Add Task"}
             </button>
           </div>
         </form>

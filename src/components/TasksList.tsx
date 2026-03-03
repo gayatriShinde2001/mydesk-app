@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import TaskCard from "./TaskCard";
 import AddTaskModal from "./AddTaskModal";
-import "./TasksList.css";
 
 interface Task {
   id: string;
@@ -19,6 +18,7 @@ const TasksList = () => {
   const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [taskForEdit, setTaskForEdit] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
@@ -85,12 +85,18 @@ const TasksList = () => {
     }
   };
 
-  const handleDeleteTask = async (taskId: string) => {
-    const result = await window.electronAPI.deleteTask(taskId);
-    if (result.success && result.data) {
-      setTasks(result.data);
+  const handleOnEditTask = (task) => {
+    setTaskForEdit(task)
+  }
+
+  const handleEditTask = async (task: Task) => {
+    try {
+      await window.electronAPI.editTask(task);
+    } catch (err) {
+      console.error("Error editing task:", err);
     }
-  };
+  }
+
 
   const handleDeleteAllTasks = async () => {
     const result = await window.electronAPI.deleteAllTasks();
@@ -129,66 +135,66 @@ const TasksList = () => {
   };
 
   const sectionConfig = [
-    { status: 'todo' as TaskStatus, title: 'To Do', className: 'section-todo' },
-    { status: 'inprogress' as TaskStatus, title: 'In Progress', className: 'section-inprogress' },
-    { status: 'done' as TaskStatus, title: 'Done', className: 'section-done' }
+    { status: 'todo' as TaskStatus, title: 'To Do' },
+    { status: 'inprogress' as TaskStatus, title: 'In Progress' },
+    { status: 'done' as TaskStatus, title: 'Done' }
   ];
 
   if (isLoading) {
-    return <div className="loading">Loading tasks...</div>;
+    return <div className="p-5">Loading tasks...</div>;
   }
 
   return (
-    <div className="tasks-container">
-      <div className="tasks-sticky-header">
-        <div className="tasks-actions">
-          <div className="search-section">
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="sticky top-0 bg-gray-100 z-10 px-5 pb-4 flex-shrink-0">
+        <div className="flex justify-between items-center mt-5 gap-4 flex-wrap">
+          <div className="flex-1 max-w-[300px]">
             <input
               type="text"
               placeholder="Search tasks..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
+              className="w-full bg-white px-3.5 py-2.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
             />
           </div>
-          <div className="tasks-actions-btn-group">
+          <div className="flex gap-1">
             <button
               onClick={() => setIsModalOpen(true)}
-              className="add-task-btn"
+              className="px-5 py-2.5 rounded bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium cursor-pointer hover:shadow-lg transition-transform hover:-translate-y-0.5"
             >
               + Add New Task
             </button>
             <button
               onClick={handleDeleteAllTasks}
-              className="delete-all-btn"
+              className="px-5 py-2.5 rounded border border-red-500 bg-white text-red-500 text-sm font-medium hover:bg-red-500 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={tasks.length === 0}
             >
               Delete All
             </button>
           </div>
         </div>
-        <h3 className="tasks-list-header">Your Tasks ({filteredTasks.length})</h3>
+        <h3 className="mt-5 mb-3">Your Tasks ({filteredTasks.length})</h3>
       </div>
 
-      <div className="tasks-sections">
-        {sectionConfig.map(({ status, title, className }) => (
+      <div className="flex gap-4 px-5 pb-5 flex-1 overflow-x-auto overflow-y-hidden">
+        {sectionConfig.map(({ status, title }) => (
           <div
             key={status}
-            className={`tasks-section ${className}`}
+            className={`flex-1 min-w-[280px] rounded-lg p-4 flex flex-col ${status === 'todo' ? 'bg-gray-200' : status === 'inprogress' ? 'bg-yellow-100' : 'bg-green-100'}`}
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, status)}
           >
-            <h4 className="section-title">{title} ({getTasksByStatus(status).length})</h4>
-            <div className="section-tasks">
+            <h4 className="m-0 mb-3 text-base font-semibold text-gray-800">{title} ({getTasksByStatus(status).length})</h4>
+            <div className="flex-1 overflow-y-auto flex flex-col gap-3 min-h-[100px]">
               {getTasksByStatus(status).length === 0 ? (
-                <p className="no-tasks-section">Drop tasks here</p>
+                <p className="text-gray-500 text-sm text-center p-5 border-2 border-dashed border-gray-300 rounded-lg m-0">Drop tasks here</p>
               ) : (
                 getTasksByStatus(status).map((task) => (
                   <TaskCard
                     key={task.id}
                     task={task}
-                    onDelete={handleDeleteTask}
                     onDragStart={handleDragStart}
+                    onEdit={handleOnEditTask}
                   />
                 ))
               )}
@@ -202,6 +208,16 @@ const TasksList = () => {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleAddTask}
       />
+      <AddTaskModal
+        isOpen={taskForEdit != null}
+        isEdit={true}
+        taskForEdit={taskForEdit}
+        onClose={() => setTaskForEdit(null)}
+        onSubmit={handleEditTask}
+      />
+
+
+
     </div>
   );
 };

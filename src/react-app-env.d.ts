@@ -23,6 +23,7 @@ interface NewTask {
 
 interface Window {
   electronAPI: {
+    editTask(task: Task): unknown;
     onExportNotes(arg0: () => Promise<void>): () => {};
     onImportNotes(arg0: () => Promise<void>): () => {};
     showTaskContextMenu(task: Task): unknown;

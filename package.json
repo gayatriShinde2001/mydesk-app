@@ -1,7 +1,8 @@
 {
   "name": "mydesk-app",
   "version": "1.0.0",
-  "main": "main.js",
+  "main": "./src/main/index.cjs",
+  "type": "module",
   "author": {
     "email": "gayatri@infocusp.com",
     "name": "Gayatri Shinde"
@@ -14,17 +15,22 @@
     "electron-start": "./release/linux-unpacked/mydesk-app --ozone-platform=x11 --disable-gpu --no-sandbox"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^7.2.0",
     "node-cron": "^4.2.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.2.1",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.0.0",
+    "autoprefixer": "^10.4.27",
     "concurrently": "^9.0.0",
     "electron": "latest",
     "electron-builder": "^26.8.1",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^4.2.1",
     "typescript": "^5.0.0",
     "vite": "^5.0.0",
     "wait-on": "^8.0.0"
@@ -36,8 +42,8 @@
       "output": "release"
     },
     "files": [
-      "main.js",
-      "preload.js",
+      "src/main/**/*",
+      "src/preload/**/*",
       "dist/**/*",
       "icon.png"
     ],

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import Header from './components/Header';
 import Tabs from './components/Tabs';
 import Content from './components/Content';
-import './App.css';
 
 type TabId = 'notes' | 'tasks' | 'calendar';
 
@@ -37,7 +36,7 @@ function App() {
   if (!window.electronAPI) return null;
 
   return (
-    <div className="app">
+    <div className="h-screen bg-gray-100 flex flex-col">
       <div>
         <Header />
         {connectionStatus && <Tabs activeTab={activeTab} onTabChange={setActiveTab} />}
@@ -47,7 +46,7 @@ function App() {
           ? <>
             <Content activeTab={activeTab} />
           </>
-          : <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+          : <div className='flex justify-center items-center h-[80vh]' >
             <p>Connecting...</p>
           </div>
       }

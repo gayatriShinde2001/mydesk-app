@@ -1,5 +1,4 @@
 import React from "react";
-import "./TaskCard.css";
 
 interface Task {
   id: string;
@@ -12,8 +11,8 @@ interface Task {
 
 interface TaskCardProps {
   task: Task;
-  onDelete: (taskId: string) => void;
   onDragStart: (e: React.DragEvent, taskId: string) => void;
+  onEdit: (task: Task) => void;
 }
 
 const formatDate = (dateStr: string) => {
@@ -22,16 +21,20 @@ const formatDate = (dateStr: string) => {
   return date.toLocaleString();
 };
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, onDelete, onDragStart }) => {
-  const handleDeleteTask = async () => {
-    const deleteRes = await window?.electronAPI.deleteTask(task.id);
-    if (!deleteRes?.cancelled) {
-      onDelete(task.id);
-    }
+const TaskCard: React.FC<TaskCardProps> = ({ task, onDragStart, onEdit }) => {
+  const handleDeleteTask = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    await window?.electronAPI.deleteTask(task.id);
   };
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     window.electronAPI.showTaskContextMenu(task);
+  }
+
+  const handleEditTask = (e: React.MouseEvent) => {
+    e.preventDefault();
+    console.log('task in handleEdit task task card', task)
+    onEdit(task)
   }
 
   return (
@@ -39,35 +42,42 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onDelete, onDragStart }) => {
       draggable
       onDragStart={(e) => onDragStart(e, task.id)}
       onContextMenu={handleContextMenu}
-      className="task-card"
+      className="border border-gray-300 rounded-lg p-4 flex flex-col gap-2.5 bg-white shadow-sm cursor-grab"
     >
-      <div className="task-card-header">
-        <div className="task-card-title-row">
-          <h4 className="task-card-title">
+      <div className="flex justify-between items-start">
+        <div className="flex items-center gap-2 flex-1">
+
+          <h4 className="m-0 text-base font-semibold text-gray-800">
+            {task.isOverdue && task.status !== 'done' && (
+              <span
+                title="Overdue"
+                className="text-red-600 text-base font-bold"
+              >
+                !&nbsp;
+              </span>
+            )}
             {task.name}
           </h4>
-          {task.isOverdue && task.status !== 'done' && (
-            <span
-              title="Overdue"
-              className="task-card-overdue"
-            >
-              !
-            </span>
-          )}
         </div>
         <button
-          onClick={handleDeleteTask}
-          className="task-card-delete-btn"
+          onClick={handleEditTask}
+          className="bg-transparent border-none cursor-pointer p-1"
         >
-          Delete
+          <i className="fa-solid fa-edit"></i>
+        </button>
+        <button
+          onClick={handleDeleteTask}
+          className="text-red-500 bg-transparent border-none cursor-pointer p-1 hover:text-red-700"
+        >
+          <i className="fa-solid fa-trash"></i>
         </button>
       </div>
-      <p className="task-card-description">
+      <p className="m-0 text-gray-600 text-sm line-clamp-3">
         {task.description}
       </p>
-      <div className="task-card-footer">
+      <div className="flex justify-between items-center mt-auto">
         {task.remindAt && (
-          <span className={`task-card-reminder ${task.isOverdue && task.status !== 'done' ? 'task-card-reminder--overdue' : ''}`}>
+          <span className={`text-xs ${task.isOverdue && task.status !== 'done' ? 'text-red-500' : 'text-gray-500'}`}>
             <strong>Remind:</strong> {formatDate(task.remindAt)}
           </span>
         )}

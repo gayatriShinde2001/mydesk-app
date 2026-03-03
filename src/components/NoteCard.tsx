@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 
 interface Note {
   id: string;
@@ -8,46 +8,19 @@ interface Note {
 
 interface NoteCardProps {
   note: Note;
-  onDelete: (noteId: string) => void;
 }
 
-const NoteCard: React.FC<NoteCardProps> = ({ note,onDelete }) => {
-  const handleDeleteNote = async() => {
-    const deleteRes = await window?.electronAPI.deleteNote(note.id);
-    if(!deleteRes.cancelled)
-      onDelete(note.id);
+const NoteCard: React.FC<NoteCardProps> = ({ note }) => {
+  const handleDeleteNote = async (e) => {
+    await window?.electronAPI.deleteNote(note.id);
   };
   return (
-    <div
-      style={{
-        border: "1px solid #ccc",
-        padding: "12px",
-        margin: "10px 0",
-        borderRadius: "4px",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-        gap: "10px"
-      }}
-    >
-      <div style={{ flex: 1 }}>
-        <h4 style={{ margin: "0 0 5px 0" }}>{note.title}</h4>
-        <p style={{ margin: 0, color: "#666" }}>{note.content}</p>
+    <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow h-fit">
+      <div className="flex justify-between items-start gap-2">
+        <h4 className="m-0 mb-2 text-base font-semibold text-gray-800">{note.title}</h4>
+        <button type="button" className="fa-solid fa-trash text-red-500 cursor-pointer hover:text-red-700" onClick={handleDeleteNote}></button>
       </div>
-      <button
-        onClick={handleDeleteNote}
-        style={{
-          color: "red",
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          padding: "5px 10px",
-          fontSize: "14px",
-          whiteSpace: "nowrap"
-        }}
-      >
-        Delete
-      </button>
+      <p className="m-0 text-gray-600 text-sm line-clamp-3">{note.content}</p>
     </div>
   );
 };

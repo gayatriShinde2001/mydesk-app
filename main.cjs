@@ -4,6 +4,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const cron = require('node-cron');
 
+
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
@@ -26,6 +27,7 @@ let notes = [];
 let isReadyToClose = false;
 let tray = null;
 let win = null;
+let isDialogOpen = false;
 
 
 const checkOverdueTasks = () => {
@@ -35,7 +37,6 @@ const checkOverdueTasks = () => {
   const allTasks = fs.readFileSync(tasksFilePath, 'utf-8');
   const overDueTasks = [];
   const allTasksJson = JSON.parse(allTasks);
-  console.log("allTasksJson", allTasksJson)
   allTasksJson.forEach((task) => {
     if (task.remindAt && !task.isOverdue) {
       const remindTime = new Date(task.remindAt);
@@ -144,22 +145,30 @@ ipcMain.handle('add-note', async (event, note) => {
 });
 
 ipcMain.handle('delete-note', async (event, noteId) => {
-  const result = await dialog.showMessageBox({
-    type: 'warning',
-    buttons: ['Delete', 'Cancel'],
-    defaultId: 1,
-    title: 'Confirm Deletion',
-    message: 'Are you sure you want to delete this Note?',
-    detail: 'This action cannot be undone!'
-  })
+  console.log('in delete-note')
+  if (isDialogOpen) return { success: false, cancelled: true }
+  isDialogOpen = true;
+  try {
+    const result = await dialog.showMessageBox({
+      type: 'warning',
+      buttons: ['Delete', 'Cancel'],
+      defaultId: 1,
+      title: 'Confirm Deletion',
+      message: 'Are you sure you want to delete this Note?',
+      detail: 'This action cannot be undone!'
+    })
 
-  if (result.response === 0) {
-    notes = notes.filter(n => n.id !== noteId);
-    fs.writeFileSync(notesFilePath, JSON.stringify(notes, null, 2));
-    return { success: true, data: notes };
-  }
-  else {
-    return { success: false, cancelled: true };
+    if (result.response === 0) {
+      notes = notes.filter(n => n.id !== noteId);
+      fs.writeFileSync(notesFilePath, JSON.stringify(notes, null, 2));
+      sendNotesRefreshEvent();
+      return { success: true };
+    }
+    else {
+      return { success: false, cancelled: true };
+    }
+  } finally {
+    isDialogOpen = false;
   }
 });
 
@@ -292,6 +301,7 @@ ipcMain.handle('save-file-dialog', async () => {
 let tasks = [];
 
 ipcMain.handle('load-tasks', async () => {
+  console.log('loading tasks')
   try {
     if (!fs.existsSync(tasksFilePath))
       return { success: true, data: [] }
@@ -332,7 +342,8 @@ ipcMain.handle('delete-task', async (event, taskId) => {
   if (result.response === 0) {
     tasks = tasks.filter(t => t.id !== taskId);
     fs.writeFileSync(tasksFilePath, JSON.stringify(tasks, null, 2));
-    return { success: true, data: tasks };
+    sendTasksRefreshEvent()
+    return { success: true };
   } else {
     return { success: false, cancelled: true };
   }
@@ -450,7 +461,9 @@ const sendTasksRefreshEvent = () => {
 }
 
 const sendNotesRefreshEvent = () => {
-  win.webContents.send('refresh-notes');
+  setTimeout(() => {
+    win.webContents.send('refresh-notes');
+  }, 100)
 }
 
 const updateTaskStatus = (taskId, newStatus) => {
@@ -489,6 +502,30 @@ const createApplicationMenu = () => {
           }
         }
       ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Reload',
+          accelerator: 'CmdOrCtrl+R',
+          click: () => { win.webContents.reload(); }
+        },
+        {
+          label: 'Force Reload',
+          accelerator: 'CmdOrCtrl+Shift+R',
+          click: () => {
+            win.webContents.session.clearCache();
+            win.webContents.reload();
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Toggle Developer Tools',
+          accelerator: 'F12',
+          click: () => { win.webContents.toggleDevTools(); }
+        }
+      ]
     }
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
@@ -514,7 +551,7 @@ function createWindow() {
       ? path.join(process.resourcesPath, 'icon.png')
       : path.join(app.getAppPath(), 'icon.png'),
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
       devTools: true

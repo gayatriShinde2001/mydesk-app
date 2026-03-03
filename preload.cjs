@@ -4,7 +4,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ping: () => ipcRenderer.invoke('ping'),
   loadNotes: () => ipcRenderer.invoke('load-notes'),
   addNote: (note) => ipcRenderer.invoke('add-note', note),
-  deleteNote: (noteId) => ipcRenderer.invoke('delete-note', noteId),
+  deleteNote: (noteId) => {
+    ipcRenderer.invoke('delete-note', noteId)
+  },
   deleteAllNotes: () => ipcRenderer.invoke('delete-all-notes'),
   requestCloseNotes: (title, content) => ipcRenderer.invoke('request-close-notes', title, content),
   requestCloseTasks: (isModalOpen) => ipcRenderer.invoke('request-close-tasks', isModalOpen),
